@@ -1,0 +1,43 @@
+config SOC_FAMILY_PY32
+    bool
+
+config SOC_SERIES_PY32F403
+    bool
+    select SOC_FAMILY_PY32
+    select ARCH_ARM_CORTEX_M4
+
+menu "On-chip peripheral drivers"
+
+config BSP_USING_GPIO
+    bool "Enable GPIO"
+    select RT_USING_PIN
+    default y
+    help
+        GPIO input, output, pull-up, pull-down and open-drain modes.
+        External GPIO interrupts are not supported yet.
+
+menuconfig BSP_USING_UART
+    bool "Enable UART"
+    select RT_USING_SERIAL
+    default y
+    help
+        The PY32 UART driver uses Serial V1 with interrupt receive and
+        polling transmit. DMA, transmit interrupts and hardware flow
+        control are not supported yet.
+
+if BSP_USING_UART
+
+comment "Select Serial V1 in RT-Thread Components to enable UART instances"
+    depends on !RT_USING_SERIAL_V1
+
+config BSP_USING_UART1
+    bool "Enable UART1"
+    depends on RT_USING_SERIAL_V1
+
+config BSP_USING_UART2
+    bool "Enable UART2"
+    depends on RT_USING_SERIAL_V1
+
+endif
+
+endmenu

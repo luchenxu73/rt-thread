@@ -1,0 +1,16 @@
+menu "Hardware Drivers Config"
+
+config BSP_USING_UART2
+    depends on BSP_USING_UART && RT_USING_SERIAL_V1
+    default y
+
+config SOC_PY32F403xD
+    bool
+    default y
+    select SOC_SERIES_PY32F403
+    select RT_USING_COMPONENTS_INIT
+    select RT_USING_USER_MAIN
+    select PKG_USING_PY32F403_SDK
+    select PKG_USING_CMSIS_CORE
+
+endmenu

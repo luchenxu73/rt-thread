@@ -1,0 +1,76 @@
+import os
+import sys
+import json
+
+import rtconfig
+
+BSP_ROOT = os.getcwd()
+RTT_ROOT = os.path.abspath(os.getenv('RTT_ROOT', os.path.join(BSP_ROOT, '../../..')))
+sys.path.append(os.path.join(RTT_ROOT, 'tools'))
+
+from building import *
+from env_package import package_exists
+
+
+def bsp_pkg_check():
+    # Package version symbols intentionally do not appear in rtconfig.h.
+    config = {}
+    with open(os.path.join(BSP_ROOT, '.config'), encoding='utf-8') as stream:
+        for line in stream:
+            if line.startswith('CONFIG_') and '=' in line:
+                key, value = line.rstrip().split('=', 1)
+                config[key[7:]] = json.loads(value) if value.startswith('"') else value
+    dependencies = [
+        ('py32f403_sdk', config.get('PKG_PY32F403_SDK_VER'),
+         ['SConscript', 'sdk/SConscript',
+          'sdk/Drivers/PY32F403_HAL_Driver/Inc/py32f4xx_hal.h',
+          'sdk/Drivers/CMSIS/Device/PUYA/PY32F403/Include/py32f4xx.h',
+          'sdk/Templates/PY32F403xx_Templates/Src/system_py32f403.c',
+          'sdk/RTThread/startup_py32f403xx.S',
+          'sdk/Templates/PY32F403xx_Templates/MDK-ARM/startup_py32f403xx.s']),
+        ('CMSIS-Core', config.get('PKG_CMSIS_CORE_VER'),
+         ['SConscript', 'Include/core_cm4.h', 'Include/cmsis_compiler.h']),
+    ]
+    missing = []
+    for name, version, markers in dependencies:
+        package_name = name + '-' + str(version)
+        if (not version or not package_exists(BSP_ROOT, package_name, marker=markers)
+                or not os.path.isfile(os.path.join(BSP_ROOT, 'packages', package_name, 'SConscript'))):
+            missing.append(name)
+    if not os.path.isfile(os.path.join(BSP_ROOT, 'packages', 'SConscript')):
+        missing.append('packages/SConscript')
+    if missing:
+        print('Missing or incomplete BSP packages: ' + ', '.join(missing))
+        print("Run 'pkgs --update' in this board directory before building.")
+        Exit(1)
+
+
+RegisterPreBuildingAction(bsp_pkg_check)
+
+DefaultEnvironment(tools=[])
+env = Environment(tools=['mingw'],
+                  AS=rtconfig.AS, ASFLAGS=rtconfig.AFLAGS,
+                  CC=rtconfig.CC, CFLAGS=rtconfig.CFLAGS,
+                  CXX=rtconfig.CXX, CXXFLAGS=rtconfig.CXXFLAGS,
+                  AR=rtconfig.AR, ARFLAGS='-rc',
+                  LINK=rtconfig.LINK, LINKFLAGS=rtconfig.LFLAGS)
+env.PrependENVPath('PATH', rtconfig.EXEC_PATH)
+env.Append(CPPDEFINES=['PY32F403xD'])
+
+Export('RTT_ROOT', 'rtconfig')
+
+libraries_path = os.path.join(BSP_ROOT, 'libraries')
+if not os.path.isdir(libraries_path):
+    libraries_path = os.path.join(os.path.dirname(BSP_ROOT), 'libraries')
+
+objs = PrepareBuilding(env, RTT_ROOT, has_libcpu=False)
+if rtconfig.CROSS_TOOL == 'llvm-arm':
+    # The shared newlib adapter requests libc; select the matching nano ABI.
+    env['LIBS'] = ['c_nano' if library == 'c' else library for library in env.get('LIBS', [])]
+    env.Append(LIBS=[env.File(path) for path in rtconfig.CLANG_RUNTIME_LIBS])
+objs += SConscript(os.path.join(libraries_path, 'drivers', 'SConscript'),
+                   variant_dir='build/libraries/drivers', duplicate=0)
+TARGET = 'rtthread.' + rtconfig.TARGET_EXT
+Clean(TARGET, ['rtthread.elf', 'rtthread.axf', 'rtthread.bin', 'rtthread.map',
+               'build/compile_commands.json'])
+DoBuilding(TARGET, objs)
