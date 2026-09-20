@@ -1,0 +1,55 @@
+menu "On-chip Peripheral Drivers"
+
+config BSP_USING_GPIO
+    bool "Enable GPIO"
+    select RT_USING_PIN
+    default y
+    help
+        GPIO input, output, pull-up, pull-down and open-drain modes.
+        External GPIO interrupts are not supported yet.
+
+menuconfig BSP_USING_UART
+    bool "Enable UART"
+    depends on RT_USING_SERIAL_V2
+    default y
+    help
+        The PY32 UART driver uses Serial V2 with interrupt receive and
+        polling or interrupt transmit. DMA and hardware flow control
+        are not supported yet. When changing the console UART, also
+        update RT_CONSOLE_DEVICE_NAME under RT-Thread Kernel.
+
+if BSP_USING_UART
+
+menuconfig BSP_USING_UART1
+    bool "Enable UART1"
+
+if BSP_USING_UART1
+config BSP_UART1_RX_BUFSIZE
+    int "Set UART1 RX buffer size"
+    range 64 65535
+    default 256
+
+config BSP_UART1_TX_BUFSIZE
+    int "Set UART1 TX buffer size (0 for polling)"
+    range 0 65535
+    default 0
+endif
+
+menuconfig BSP_USING_UART2
+    bool "Enable UART2"
+
+if BSP_USING_UART2
+config BSP_UART2_RX_BUFSIZE
+    int "Set UART2 RX buffer size"
+    range 64 65535
+    default 256
+
+config BSP_UART2_TX_BUFSIZE
+    int "Set UART2 TX buffer size (0 for polling)"
+    range 0 65535
+    default 0
+endif
+
+endif
+
+endmenu
