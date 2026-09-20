@@ -1,0 +1,35 @@
+menu "Hardware Drivers Config"
+
+config BSP_USING_UART2
+    depends on BSP_USING_UART && RT_USING_SERIAL_V1
+    default y
+
+choice
+    prompt "Chip variant"
+    default SOC_PY32F403xD
+    help
+        Flash size selection. It must match the fitted part: the selected
+        symbol is passed to the vendor headers as PY32F403xB/xC/xD, and the
+        linker script is fixed for 384 KiB (xD).
+
+config SOC_PY32F403xB
+    bool "PY32F403xB (128 KiB Flash, 64 KiB SRAM)"
+    select SOC_SERIES_PY32F403
+
+config SOC_PY32F403xC
+    bool "PY32F403xC (256 KiB Flash, 64 KiB SRAM)"
+    select SOC_SERIES_PY32F403
+
+config SOC_PY32F403xD
+    bool "PY32F403xD (384 KiB Flash, 64 KiB SRAM)"
+    select SOC_SERIES_PY32F403
+
+endchoice
+
+config SOC_PY32F403
+    bool
+    default y
+    select RT_USING_COMPONENTS_INIT
+    select RT_USING_USER_MAIN
+
+endmenu

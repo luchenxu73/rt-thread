@@ -1,0 +1,74 @@
+import os
+import sys
+
+import rtconfig
+
+BSP_ROOT = os.getcwd()
+RTT_ROOT = os.path.abspath(os.getenv('RTT_ROOT', os.path.join(BSP_ROOT, '../../..')))
+sys.path.append(os.path.join(RTT_ROOT, 'tools'))
+
+from building import *
+from env_package import find_package_root
+
+
+def bsp_pkg_check():
+    """Fail early with an actionable message when a package is unavailable."""
+    if GetOption('clean'):
+        return
+
+    # A package can be enabled in Kconfig and still be missing on disk, and a
+    # regenerated .config can silently lose the package symbols when PKGS_DIR
+    # is unavailable. Report the two cases separately instead of always
+    # blaming 'pkgs --update'.
+    checks = [
+        ('PY32F403_SDK', 'PKG_USING_PY32F403_SDK', 'py32f403_sdk-',
+         ['SConscript', 'Drivers/PY32F403_HAL_Driver/Inc/py32f4xx_hal.h',
+          'Templates/PY32F403xx_Templates/Src/system_py32f403.c']),
+        ('CMSIS-Core', 'PKG_USING_CMSIS_CORE', 'CMSIS-Core-',
+         ['SConscript', 'Include/core_cm4.h']),
+    ]
+    for name, symbol, prefix, markers in checks:
+        if not GetDepend(symbol):
+            print('The %s package is not enabled in .config/rtconfig.h.' % name)
+            print("Run 'scons --menuconfig' in this board directory and enable it, "
+                  "then run 'pkgs --update'.")
+            Exit(1)
+        if find_package_root(BSP_ROOT, package_prefix=prefix, marker=markers) is None:
+            print('The %s package is enabled but not installed (%s*).' % (name, prefix))
+            print("Run 'pkgs --update' in this board directory before building.")
+            Exit(1)
+
+    if not os.path.isfile(os.path.join(BSP_ROOT, 'packages', 'SConscript')):
+        print("The BSP package directory is incomplete: packages/SConscript is missing.")
+        print("Run 'pkgs --update' in this board directory before building.")
+        Exit(1)
+
+
+RegisterPreBuildingAction(bsp_pkg_check)
+
+DefaultEnvironment(tools=[])
+env = Environment(tools=['mingw'],
+                  AS=rtconfig.AS, ASFLAGS=rtconfig.AFLAGS,
+                  CC=rtconfig.CC, CFLAGS=rtconfig.CFLAGS,
+                  CXX=rtconfig.CXX, CXXFLAGS=rtconfig.CXXFLAGS,
+                  AR=rtconfig.AR, ARFLAGS='-rc',
+                  LINK=rtconfig.LINK, LINKFLAGS=rtconfig.LFLAGS)
+env.PrependENVPath('PATH', rtconfig.EXEC_PATH)
+
+Export('RTT_ROOT', 'rtconfig')
+
+libraries_path = os.path.join(BSP_ROOT, 'libraries')
+if not os.path.isdir(libraries_path):
+    libraries_path = os.path.join(os.path.dirname(BSP_ROOT), 'libraries')
+
+objs = PrepareBuilding(env, RTT_ROOT, has_libcpu=False)
+if rtconfig.CROSS_TOOL == 'llvm-arm':
+    # The shared newlib adapter requests libc; select the matching nano ABI.
+    env['LIBS'] = ['c_nano' if library == 'c' else library for library in env.get('LIBS', [])]
+    env.Append(LIBS=[env.File(path) for path in rtconfig.CLANG_RUNTIME_LIBS])
+objs += SConscript(os.path.join(libraries_path, 'drivers', 'SConscript'),
+                   variant_dir='build/libraries/drivers', duplicate=0)
+TARGET = 'rtthread.' + rtconfig.TARGET_EXT
+Clean(TARGET, ['rtthread.elf', 'rtthread.axf', 'rtthread.bin', 'rtthread.map',
+               'build/compile_commands.json'])
+DoBuilding(TARGET, objs)

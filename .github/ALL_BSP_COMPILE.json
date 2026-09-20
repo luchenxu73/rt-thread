@@ -104,7 +104,8 @@
         "w60x",
         "essemi/es32f0654",
         "essemi/es32f365x",
-        "fm33lc026"
+        "fm33lc026",
+        "py32/py32f403_start_kit"
       ]
     },
     {

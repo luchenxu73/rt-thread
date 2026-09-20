@@ -1,0 +1,10 @@
+import rtconfig
+
+from building import *
+
+cwd = GetCurrentDir()
+# Group-level defines are what the IDE generators export, so the chip macro
+# must live here as well as in DEVICE/CFLAGS.
+group = DefineGroup('Board', ['board.c'], depend=[''], CPPPATH=[cwd],
+                    CPPDEFINES=[rtconfig.CHIP_DEFINE])
+Return('group')

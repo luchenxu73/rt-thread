@@ -1,0 +1,16 @@
+from building import *
+
+cwd = GetCurrentDir()
+src = []
+
+# Shared drivers follow RT-Thread components; series differences live in the
+# peripheral implementation, and board.h selects the vendor HAL.
+if GetDepend('RT_USING_PIN'):
+    src += ['drv_gpio.c']
+
+if GetDepend('RT_USING_SERIAL'):
+    src += ['drv_usart.c']
+
+group = DefineGroup('PY32_Drivers', src, depend=['SOC_FAMILY_PY32'], CPPPATH=[cwd])
+
+Return('group')
